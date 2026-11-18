@@ -1,0 +1,25 @@
+# Shared by every profile: one HTTPS load balancer, one certificate map.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: harness
+  namespace: gateway
+  annotations:
+    networking.gke.io/certmap: harness-certs
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: All
+  addresses:
+    - type: NamedAddress
+      value: harness-gateway

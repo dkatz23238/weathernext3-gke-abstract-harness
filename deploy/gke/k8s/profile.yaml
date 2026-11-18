@@ -1,0 +1,107 @@
+# One profile = one namespace. Rendered by up.sh with envsubst:
+# NAME, HOST, IMAGE. Secrets harness-env and gcp-adc are created by up.sh.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: harness
+  namespace: ${NAME}
+spec:
+  serviceName: harness
+  replicas: 1
+  selector:
+    matchLabels: {app: harness}
+  template:
+    metadata:
+      labels: {app: harness}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: harness
+          image: ${IMAGE}
+          ports:
+            - containerPort: 8811
+          envFrom:
+            - secretRef: {name: harness-env}
+          env:
+            - name: HARNESS_DATA_ROOT
+              value: /harness-data
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /secrets/gcp/adc.json
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8811}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: "1", memory: 4Gi, ephemeral-storage: 2Gi}
+          volumeMounts:
+            - {name: data, mountPath: /harness-data}
+            - {name: gcp-adc, mountPath: /secrets/gcp, readOnly: true}
+      volumes:
+        - name: gcp-adc
+          secret: {secretName: gcp-adc, optional: true}
+  # standard-rwo reclaims with Delete: deleting the namespace deletes the disk.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: standard-rwo
+        resources:
+          requests: {storage: 10Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: harness
+  namespace: ${NAME}
+spec:
+  selector: {app: harness}
+  ports:
+    - port: 8811
+      targetPort: 8811
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: harness
+  namespace: ${NAME}
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 8811
+        requestPath: /healthz
+  targetRef:
+    group: ""
+    kind: Service
+    name: harness
+---
+# Agent runs stream for a long time over one request (SSE).
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: harness
+  namespace: ${NAME}
+spec:
+  default:
+    timeoutSec: 3600
+  targetRef:
+    group: ""
+    kind: Service
+    name: harness
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: harness
+  namespace: ${NAME}
+spec:
+  parentRefs:
+    - name: harness
+      namespace: gateway
+  hostnames: ["${HOST}"]
+  rules:
+    - backendRefs:
+        - name: harness
+          port: 8811

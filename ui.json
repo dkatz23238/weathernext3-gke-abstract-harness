@@ -1,0 +1,8 @@
+{
+  "title": "Metero",
+  "subtitle": "WeatherNext 3 hazard intelligence",
+  "data_calls_label": "weather calls",
+  "data_source_name": "WeatherNext 3",
+  "placeholder": "Which municipalities face frost, heat, storms or wind this week?",
+  "hint": "Ask for an agro or oil & gas hazard report, e.g. 'Frost and heavy-rain risk for the core crop belt in the next 7 days' or 'Wind risk for Vaca Muerta operations this week, with the nowcast for the worst sites'. Reports come with interactive maps."
+}
